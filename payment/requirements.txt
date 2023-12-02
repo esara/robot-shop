@@ -2,3 +2,5 @@ uwsgi
 Flask
 requests
 pika
+prometheus_client
+prometheus-flask-exporter

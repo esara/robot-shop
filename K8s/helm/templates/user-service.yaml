@@ -2,6 +2,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: user
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
   labels:
     app.kubernetes.io/name: robot-shop
     service: user

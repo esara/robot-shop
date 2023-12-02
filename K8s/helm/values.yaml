@@ -50,7 +50,8 @@ shipping: {}
 #  failureFromMinute: 0
 #  failureTillMinute: 15
 
-rabbitmq: {}
+rabbitmq:
+  enableExporter: true
 
 ratings: {}
 

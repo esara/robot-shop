@@ -3,13 +3,17 @@ kind: Service
 metadata:
   name: rabbitmq
   labels:
+    app.kubernetes.io/name: robot-shop
     service: rabbitmq
+    type: infra
 spec:
   ports:
   - name: tcp-amqp
     port: 5672
   - name: http-management
     port: 15672
+  - name: http-metrics
+    port: 15692
   - name: tcp-epmd
     port: 4369
     targetPort: 4369
