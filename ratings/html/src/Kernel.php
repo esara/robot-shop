@@ -74,7 +74,7 @@ class Kernel extends BaseKernel implements EventSubscriberInterface
         ]);
 
         $c->setParameter('catalogueUrl', getenv('CATALOGUE_URL') ?: 'http://catalogue:8080');
-        $c->setParameter('pdo_dsn', getenv('PDO_URL') ?: 'mysql:host=mysql;dbname=ratings;charset=utf8mb4');
+        $c->setParameter('pdo_dsn', getenv('PDO_URL') ?: 'mysql:host=mysql;dbname=ratings;charset=utf8mb4;default_authentication_plugin=mysql_native_password);
         $c->setParameter('pdo_user', 'ratings');
         $c->setParameter('pdo_password', 'iloveit');
         $c->setParameter('logger.name', 'RatingsAPI');

@@ -1,16 +1,9 @@
 # Registry and repository for Docker images
 # Default is docker/robotshop/image:latest
 image:
-  repo: robotshop
+  repo: esara
   version: latest
   pullPolicy: IfNotPresent
-
-# EUM configuration
-# Provide your key and set the endpoint
-eum:
-  key: null
-  url: https://eum-eu-west-1.instana.io
-  #url: https://eum-us-west-2.instana.io
 
 # Pod Security Policy
 psp:
@@ -48,6 +41,14 @@ payment:
   # Default is https://www.paypal.com
   gateway: null
   #gateway: https://www.worldpay.com
+#  failureHour: 20
+#  failureFromMinute: 30
+#  failureTillMinute: 60
+
+shipping: {}
+#  failureHour: null
+#  failureFromMinute: 0
+#  failureTillMinute: 15
 
 rabbitmq: {}
 
@@ -56,8 +57,6 @@ ratings: {}
 redis:
   # Storage class to use with redis statefulset.
   storageClassName: standard
-
-shipping: {}
 
 user: {}
 

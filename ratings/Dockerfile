@@ -1,7 +1,4 @@
-#
-# Build the app
-#
-FROM php:7.4-apache
+FROM php:8.4-apache
 
 RUN apt-get update && apt-get install -yqq unzip libzip-dev \
     && docker-php-ext-install pdo_mysql opcache zip
@@ -28,4 +25,3 @@ RUN composer install
 RUN rm -Rf /var/www/var/*
 RUN chown -R www-data /var/www
 RUN chmod -R 777 /var/www
-

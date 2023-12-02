@@ -1,21 +1,11 @@
-const instana = require('@instana/collector');
-// init tracing
-// MUST be done before loading anything else!
-instana({
-    tracing: {
-        enabled: true
-    }
-});
-
-const mongoClient = require('mongodb').MongoClient;
-const mongoObjectID = require('mongodb').ObjectID;
 const bodyParser = require('body-parser');
 const express = require('express');
-const pino = require('pino');
 const expPino = require('express-pino-logger');
+const mongoClient = require('mongodb').MongoClient;
+const pino = require('pino');
 
 const logger = pino({
-    level: 'info',
+    level: 'warn',
     prettyPrint: false,
     useLevelLabels: true
 });
@@ -38,20 +28,6 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use((req, res, next) => {
-    let dcs = [
-        "asia-northeast2",
-        "asia-south1",
-        "europe-west3",
-        "us-east1",
-        "us-west1"
-    ];
-    let span = instana.currentSpan();
-    span.annotate('custom.sdk.tags.datacenter', dcs[Math.floor(Math.random() * dcs.length)]);
-
-    next();
-});
-
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
@@ -61,6 +37,14 @@ app.get('/health', (req, res) => {
         mongo: mongoConnected
     };
     res.json(stat);
+});
+
+app.get('/ready', (req, res) => {
+    if(mongoConnected) {
+        res.send('ready');
+    } else {
+        res.status(404).send('not ready');
+    }
 });
 
 // all products
