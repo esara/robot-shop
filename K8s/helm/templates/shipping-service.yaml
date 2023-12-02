@@ -3,11 +3,11 @@ kind: Service
 metadata:
   name: shipping
   labels:
+    app.kubernetes.io/name: robot-shop
     service: shipping
 spec:
   ports:
   - name: http
     port: 8080
-    targetPort: 8080
   selector:
     service: shipping

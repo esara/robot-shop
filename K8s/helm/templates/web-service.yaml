@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: web
   labels:
+    app.kubernetes.io/name: robot-shop
     service: web
 spec:
   ports:

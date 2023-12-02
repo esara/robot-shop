@@ -3,11 +3,11 @@ kind: Service
 metadata:
   name: payment
   labels:
+    app.kubernetes.io/name: robot-shop
     service: payment
 spec:
   ports:
   - name: http
     port: 8080
-    targetPort: 8080
   selector:
     service: payment

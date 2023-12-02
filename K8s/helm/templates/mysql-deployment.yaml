@@ -19,14 +19,32 @@ spec:
       {{ end }}
       containers:
       - name: mysql
-        image: {{ .Values.image.repo }}/rs-mysql-db:{{ .Values.image.version }}
+        image: mysql:8
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-credentials
+                key: rootPassword
+                optional: false
+          - name: MYSQL_DATABASE
+            value: cities
+          - name: MYSQL_USER
+            value: shipping
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-credentials
+                key: userPassword
+                optional: false
         # added for Istio
         securityContext:
           capabilities:
             add: ["NET_ADMIN"]
         ports:
-        - containerPort: 3306
+        - name: mysql
+          containerPort: 3306
         resources:
           limits:
             cpu: 200m
@@ -34,6 +52,16 @@ spec:
           requests:
             cpu: 100m
             memory: 700Mi
+      - name: mysql-loader
+        image: {{ .Values.image.repo }}/rs-loader:{{ .Values.image.version }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-credentials
+                key: rootPassword
+                optional: false
       restartPolicy: Always
       {{- with .Values.mysql.affinity }}
       affinity:

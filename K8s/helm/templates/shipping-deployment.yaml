@@ -22,23 +22,34 @@ spec:
         image: {{ .Values.image.repo }}/rs-shipping:{{ .Values.image.version }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 8080
+        # Shipping depends on MySQL which takes a long time to start
+        # Springboot is not too quick on startup either
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 60
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 30
+          successThreshold: 1
         # it's Java it needs lots of memory
         resources:
           limits:
-            cpu: 200m
+            cpu: 2000m
             memory: 1000Mi
           requests:
             cpu: 100m
             memory: 500Mi
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          failureThreshold: 30
-          successThreshold: 1
       restartPolicy: Always
       {{- with .Values.shipping.affinity }}
       affinity:

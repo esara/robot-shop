@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: ratings
   labels:
+    app.kubernetes.io/name: robot-shop
     service: ratings
 spec:
   ports:
@@ -11,4 +12,3 @@ spec:
     targetPort: 80
   selector:
     service: ratings
-

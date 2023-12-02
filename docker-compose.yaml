@@ -18,7 +18,7 @@ services:
     logging:
       <<: *logging
   rabbitmq:
-    image: rabbitmq:3.8-management-alpine
+    image: rabbitmq:3.12
     networks:
       - robot-shop
     logging:
@@ -32,7 +32,7 @@ services:
     networks:
       - robot-shop
     healthcheck:
-      test: [ "CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
       timeout: 10s
       retries: 3
@@ -48,7 +48,7 @@ services:
     networks:
       - robot-shop
     healthcheck:
-      test: [ "CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
       timeout: 10s
       retries: 3
@@ -60,21 +60,37 @@ services:
     image: ${REPO}/rs-cart:${TAG}
     depends_on:
       - redis
+      - catalogue
     networks:
       - robot-shop
     healthcheck:
-      test: [ "CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
       timeout: 10s
       retries: 3
     logging:
       <<: *logging
   mysql:
-    build:
-      context: mysql
-    image: ${REPO}/rs-mysql-db:${TAG}
+    image: mysql:8
+    environment:
+      - MYSQL_ROOT_PASSWORD=superdba
+      - MYSQL_DATABASE=cities
+      - MYSQL_USER=shipping
+      - MYSQL_PASSWORD=secret
     cap_add:
       - NET_ADMIN
+    networks:
+      - robot-shop
+    logging:
+      <<: *logging
+  loader:
+    build:
+      context: mysql-loader
+    image: ${REPO}/rs-loader:${TAG}
+    environment:
+      - MYSQL_ROOT_PASSWORD=superdba
+    depends_on:
+      - mysql
     networks:
       - robot-shop
     logging:
@@ -88,7 +104,7 @@ services:
     networks:
       - robot-shop
     healthcheck:
-      test: ["CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 10s
       retries: 3
@@ -104,8 +120,9 @@ services:
       - robot-shop
     depends_on:
       - mysql
+      - catalogue
     healthcheck:
-      test: ["CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost/_health"]
+      test: ["CMD", "curl", "-f", "http://localhost/_health"]
       interval: 10s
       timeout: 10s
       retries: 3
@@ -120,7 +137,7 @@ services:
     networks:
       - robot-shop
     healthcheck:
-      test: ["CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 10s
       retries: 3
@@ -135,6 +152,7 @@ services:
     image: ${REPO}/rs-dispatch:${TAG}
     depends_on:
       - rabbitmq
+      - mongodb
     networks:
       - robot-shop
     logging:
@@ -142,9 +160,6 @@ services:
   web:
     build:
       context: web
-      args:
-        # agent key to download tracing libs
-        KEY: ${INSTANA_AGENT_KEY}
     image: ${REPO}/rs-web:${TAG}
     depends_on:
       - catalogue
@@ -156,14 +171,10 @@ services:
     networks:
       - robot-shop
     healthcheck:
-      test: [ "CMD", "curl", "-H", "X-INSTANA-SYNTHETIC: 1", "-f", "http://localhost:8080/" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
       interval: 10s
       timeout: 10s
       retries: 3
-    # Uncomment to enable Instana EUM
-    # environment:
-      # INSTANA_EUM_KEY: <your eum key>
-      # INSTANA_EUM_REPORTING_URL: <your reporting url>
     logging:
       <<: *logging
 

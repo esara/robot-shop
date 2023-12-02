@@ -1,10 +1,17 @@
-FROM golang:1.17
+FROM golang:1.23 AS build
 
-WORKDIR /go/src/app
+ARG VERSION
+WORKDIR /build
 
-COPY *.go .
+COPY go.* ./
+RUN go mod download
 
-RUN go mod init dispatch && go get
-RUN go install
+COPY *.go ./
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=$VERSION" -o dispatch
 
+FROM debian:12-slim
+
+EXPOSE 8080
+
+COPY --from=build /build/dispatch /usr/local/bin/dispatch
 CMD dispatch

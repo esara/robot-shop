@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.12
 
 # Some default values
 ENV HOST="http://localhost:8080/" \
@@ -6,7 +6,6 @@ ENV HOST="http://localhost:8080/" \
     NUM_CLIENTS=1 \
     ERROR=0 \
     RUN_TIME=0
-    
 
 WORKDIR /load
 
@@ -18,4 +17,3 @@ COPY entrypoint.sh /load/
 COPY robot-shop.py /load/
 
 CMD ["./entrypoint.sh"]
-

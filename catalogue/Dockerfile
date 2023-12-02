@@ -1,6 +1,4 @@
-FROM node:14
-
-ENV INSTANA_AUTO_PROFILE true
+FROM node:23
 
 EXPOSE 8080
 
@@ -13,4 +11,3 @@ RUN npm install
 COPY server.js /opt/server/
 
 CMD ["node", "server.js"]
-

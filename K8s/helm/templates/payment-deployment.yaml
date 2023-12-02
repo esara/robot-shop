@@ -24,18 +24,26 @@ spec:
       - name: payment
         image: {{ .Values.image.repo }}/rs-payment:{{ .Values.image.version }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        # agent networking access
+        {{- if .Values.payment.gateway }}
         env:
-          - name: INSTANA_AGENT_HOST
-            valueFrom:
-              fieldRef:
-                fieldPath: status.hostIP
-          {{- if .Values.payment.gateway }}
           - name: PAYMENT_GATEWAY
             value: {{ .Values.payment.gateway }}
-          {{- end }}
+        {{- end }}
+        {{- if .Values.payment.failureHour }}
+        - name: FAILURE_HOUR
+          value: {{ .Values.payment.failureHour | quote }}
+        {{- end }}
+        {{- if .Values.payment.failureFromMinute }}
+        - name: FAILURE_FROM_MINUTE
+          value: {{ .Values.payment.failureFromMinute | quote }}
+        {{- end }}
+        {{- if .Values.payment.failureTillMinute }}
+        - name: FAILURE_TILL_MINUTE
+          value: {{ .Values.payment.failureTillMinute | quote }}
+        {{- end }}
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 8080
         resources:
           limits:
             cpu: 200m

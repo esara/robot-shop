@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
-    service: catalogue
   name: catalogue
+  labels:
+    app.kubernetes.io/name: robot-shop
+    service: catalogue
 spec:
   ports:
   - name: http
     port: 8080
-    targetPort: 8080
   selector:
     service: catalogue

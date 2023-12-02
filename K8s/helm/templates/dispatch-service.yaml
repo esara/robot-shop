@@ -1,16 +1,13 @@
-# dispatch just listens to a message queue
-# it does not expose any ports
 apiVersion: v1
 kind: Service
 metadata:
   name: dispatch
   labels:
+    app.kubernetes.io/name: robot-shop
     service: dispatch
 spec:
-  clusterIP: None
   ports:
-  - name: headless
-    port: 55555
-    targetPort: 0
+  - name: http
+    port: 8080
   selector:
     service: dispatch

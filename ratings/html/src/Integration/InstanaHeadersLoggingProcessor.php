@@ -22,18 +22,9 @@ class InstanaHeadersLoggingProcessor implements EventSubscriberInterface, ResetI
         ];
     }
 
-    public function __invoke(array $records): array
-    {
-        if ($this->routeData && !isset($records['extra']['requests'])) {
-            $records['extra']['instana'] = array_values($this->routeData);
-        }
-
-        return $records;
-    }
-
     public function addHeaderData(RequestEvent $event): void
     {
-        if ($event->isMasterRequest()) {
+        if ($event->isMainRequest()) {
             $this->reset();
         }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,32 +10,39 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/instana/go-sensor"
-	ot "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	otlog "github.com/opentracing/opentracing-go/log"
-	"github.com/streadway/amqp"
-)
+	amqp "github.com/rabbitmq/amqp091-go"
 
-const (
-	Service = "dispatch"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
-	amqpUri          string
+	version          = "unknown"
 	rabbitChan       *amqp.Channel
 	rabbitCloseError chan *amqp.Error
 	rabbitReady      chan bool
+	mongodbClient    *mongo.Client
 	errorPercent     int
-
-	dataCenters = []string{
-		"asia-northeast2",
-		"asia-south1",
-		"europe-west3",
-		"us-east1",
-		"us-west1",
-	}
 )
+
+// uri - mongodb://user:pass@host:port
+func connectToMongo(uri string) *mongo.Client {
+	log.Println("Connecting to", uri)
+	opts := options.Client()
+	opts.ApplyURI(uri)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	for {
+		client, err := mongo.Connect(ctx, opts)
+		if err == nil {
+			return client
+		}
+
+		log.Println(err)
+		log.Printf("Reconnecting to %s\n", uri)
+		time.Sleep(2 * time.Second)
+	}
+}
 
 func connectToRabbitMQ(uri string) *amqp.Connection {
 	for {
@@ -58,7 +66,7 @@ func rabbitConnector(uri string) {
 			return
 		}
 
-		log.Printf("Connecting to %s\n", amqpUri)
+		log.Printf("Connecting to %s\n", uri)
 		rabbitConn := connectToRabbitMQ(uri)
 		rabbitConn.NotifyClose(rabbitCloseError)
 
@@ -91,88 +99,42 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func getOrderId(order []byte) string {
-	id := "unknown"
-	var f interface{}
-	err := json.Unmarshal(order, &f)
-	if err == nil {
-		m := f.(map[string]interface{})
-		id = m["orderid"].(string)
+func processOrder(headers map[string]interface{}, order []byte) {
+	log.Printf("processing order %s\n", order)
+
+	if mongodbClient != nil {
+		// parse string to json
+		var o map[string]interface{}
+		err := json.Unmarshal(order, &o)
+		if err != nil {
+			log.Println("error parsing order", err)
+			return
+		}
+		// add _id field
+		o["_id"] = o["orderid"]
+
+		// save the order
+		coll := mongodbClient.Database("orders").Collection("orders")
+		res, err := coll.InsertOne(context.Background(), o)
+		if err == nil {
+			log.Println("insert result", res.InsertedID)
+		} else {
+			log.Println("insertion error", err)
+		}
 	}
 
-	return id
-}
-
-func createSpan(headers map[string]interface{}, order string) {
-	// headers is map[string]interface{}
-	// carrier is map[string]string
-	carrier := make(ot.TextMapCarrier)
-	// convert by copying k, v
-	for k, v := range headers {
-		carrier[k] = v.(string)
-	}
-
-	// get the order id
-	log.Printf("order %s\n", order)
-
-	// opentracing
-	var span ot.Span
-	tracer := ot.GlobalTracer()
-	spanContext, err := tracer.Extract(ot.HTTPHeaders, carrier)
-	if err == nil {
-		log.Println("Creating child span")
-		// create child span
-		span = tracer.StartSpan("getOrder", ot.ChildOf(spanContext))
-
-		fakeDataCenter := dataCenters[rand.Intn(len(dataCenters))]
-		span.SetTag("datacenter", fakeDataCenter)
-	} else {
-		log.Println(err)
-		log.Println("Failed to get context from headers")
-		log.Println("Creating root span")
-		// create root span
-		span = tracer.StartSpan("getOrder")
-	}
-
-	span.SetTag(string(ext.SpanKind), ext.SpanKindConsumerEnum)
-	span.SetTag(string(ext.MessageBusDestination), "robot-shop")
-	span.SetTag("exchange", "robot-shop")
-	span.SetTag("sort", "consume")
-	span.SetTag("address", "rabbitmq")
-	span.SetTag("key", "orders")
-	span.LogFields(otlog.String("orderid", order))
-	defer span.Finish()
-
+	// add a little extra time
 	time.Sleep(time.Duration(42+rand.Int63n(42)) * time.Millisecond)
-	if rand.Intn(100) < errorPercent {
-		span.SetTag("error", true)
-		span.LogFields(
-			otlog.String("error.kind", "Exception"),
-			otlog.String("message", "Failed to dispatch to SOP"))
-		log.Println("Span tagged with error")
+
+	// crash out for Crash Loop Assertion
+	if errorPercent > 0 && rand.Intn(100) < errorPercent {
+		// TODO - better message text
+		log.Fatal("crashing out")
 	}
-
-	processSale(span)
-}
-
-func processSale(parentSpan ot.Span) {
-	tracer := ot.GlobalTracer()
-	span := tracer.StartSpan("processSale", ot.ChildOf(parentSpan.Context()))
-	defer span.Finish()
-	span.SetTag(string(ext.SpanKind), "intermediate")
-	span.LogFields(otlog.String("info", "Order sent for processing"))
-	time.Sleep(time.Duration(42+rand.Int63n(42)) * time.Millisecond)
 }
 
 func main() {
-	rand.Seed(time.Now().Unix())
-
-	// Instana tracing
-	ot.InitGlobalTracer(instana.NewTracerWithOptions(&instana.Options{
-		Service:           Service,
-		LogLevel:          instana.Info,
-		EnableAutoProfile: true,
-	}))
+	rand.NewSource(time.Now().Unix())
 
 	// Init amqpUri
 	// get host from environment
@@ -180,7 +142,13 @@ func main() {
 	if !ok {
 		amqpHost = "rabbitmq"
 	}
-	amqpUri = fmt.Sprintf("amqp://guest:guest@%s:5672/", amqpHost)
+	amqpUri := fmt.Sprintf("amqp://guest:guest@%s:5672/", amqpHost)
+
+	mongodbHost, ok := os.LookupEnv("MONGO_HOST")
+	if !ok {
+		mongodbHost = "mongodb"
+	}
+	mongodbUri := fmt.Sprintf("mongodb://%s:27017", mongodbHost)
 
 	// get error threshold from environment
 	errorPercent = 0
@@ -209,6 +177,11 @@ func main() {
 
 	rabbitCloseError <- amqp.ErrClosed
 
+	// MongoDB connection
+	go func() {
+		mongodbClient = connectToMongo(mongodbUri)
+	}()
+
 	go func() {
 		for {
 			// wait for rabbit to be ready
@@ -220,10 +193,9 @@ func main() {
 			failOnError(err, "Failed to consume")
 
 			for d := range msgs {
-				log.Printf("Order %s\n", d.Body)
 				log.Printf("Headers %v\n", d.Headers)
-				id := getOrderId(d.Body)
-				go createSpan(d.Headers, id)
+				log.Printf("Order %s\n", d.Body)
+				processOrder(d.Headers, d.Body)
 			}
 		}
 	}()
