@@ -34,6 +34,18 @@ spec:
           requests:
             cpu: 100m
             memory: 50Mi
+      - name: redis-exporter
+        image: oliver006/redis_exporter:v1.55.0
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 50Mi
+          limits:
+            memory: 50Mi
+        ports:
+          - name: http-metrics
+            containerPort: 9121
       restartPolicy: Always
       {{- with .Values.redis.affinity }}
       affinity:

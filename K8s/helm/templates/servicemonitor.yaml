@@ -1,0 +1,38 @@
+{{- if  .Capabilities.APIVersions.Has "monitoring.coreos.com/v1"  }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  endpoints:
+    - port: http
+    - port: http-metrics
+  jobLabel: robot-shop
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: robot-shop
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rabbitmq-detailed
+spec:
+  endpoints:
+    - interval: 30s
+      params:
+        family:
+          - queue_coarse_metrics
+          - queue_consumer_count
+      path: /metrics/detailed
+      port: http-metrics
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: robot-shop
+      service: rabbitmq
+{{- end }}

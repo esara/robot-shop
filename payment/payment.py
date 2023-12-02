@@ -9,6 +9,11 @@ import requests
 from flask import Flask
 from flask import jsonify
 from flask import request
+from prometheus_client import Gauge
+from prometheus_client import Counter
+from prometheus_client import Histogram
+from prometheus_flask_exporter import PrometheusMetrics
+
 from rabbitmq import Publisher
 
 def path(req):
@@ -16,7 +21,13 @@ def path(req):
     return "/" + req.path[1:].split("/")[0] + "/<id>"
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app, group_by=path)
 app.logger.setLevel(logging.INFO)
+
+# Prometheus
+payment_item_counter = Counter('payment_items_counter', 'running count of items for payment')
+cart_size = Histogram('payment_cart_size', 'number of items in cart at payment', buckets=(1, 3, 5, 10, 15, float('inf')))
+cart_value = Histogram('payment_cart_value', 'cart value at payment', buckets=(100, 200, 500, 1000, 2000, 5000, 10000, float('inf')))
 
 CART = os.getenv('CART_HOST', 'cart')
 USER = os.getenv('USER_HOST', 'user')
@@ -109,6 +120,11 @@ def pay(id):
         return 'order history update error', req.status_code
     else:
         app.logger.info('cart delete returned 200')
+
+    # business metrics
+    payment_item_counter.inc(countItems(cart.get('items')))
+    cart_size.observe(countItems(cart.get('items')))
+    cart_value.observe(cart.get('total'))
 
     return jsonify({ 'orderid': orderid })
 

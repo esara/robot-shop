@@ -3,10 +3,14 @@ kind: Service
 metadata:
   name: redis
   labels:
+    app.kubernetes.io/name: robot-shop
     service: redis
+    type: infra
 spec:
   ports:
   - name: redis
     port: 6379
+  - name: http-metrics
+    port: 9121
   selector:
     service: redis

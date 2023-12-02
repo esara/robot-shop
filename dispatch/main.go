@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -24,6 +27,29 @@ var (
 	mongodbClient    *mongo.Client
 	errorPercent     int
 )
+
+var methodDurationHistogram = prometheus.NewHistogramVec(
+	prometheus.HistogramOpts{
+		Name:    "go_method_timed_seconds",
+		Help:    "histogram",
+		Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10},
+	},
+	[]string{"method"},
+)
+
+func init() {
+	prometheus.MustRegister(methodDurationHistogram)
+
+	g := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "version_info",
+		ConstLabels: prometheus.Labels{
+			"version": version,
+		},
+	})
+	g.Set(1)
+
+	prometheus.MustRegister(g)
+}
 
 // uri - mongodb://user:pass@host:port
 func connectToMongo(uri string) *mongo.Client {
@@ -100,6 +126,7 @@ func failOnError(err error, msg string) {
 }
 
 func processOrder(headers map[string]interface{}, order []byte) {
+	start := time.Now()
 	log.Printf("processing order %s\n", order)
 
 	if mongodbClient != nil {
@@ -125,6 +152,8 @@ func processOrder(headers map[string]interface{}, order []byte) {
 
 	// add a little extra time
 	time.Sleep(time.Duration(42+rand.Int63n(42)) * time.Millisecond)
+	duration := time.Since(start)
+	methodDurationHistogram.WithLabelValues("processOrder").Observe(duration.Seconds())
 
 	// crash out for Crash Loop Assertion
 	if errorPercent > 0 && rand.Intn(100) < errorPercent {
@@ -200,6 +229,6 @@ func main() {
 		}
 	}()
 
-	log.Println("Waiting for messages")
-	select {}
+	http.Handle("/metrics", promhttp.Handler())
+	panic(http.ListenAndServe(":8080", nil))
 }

@@ -3,10 +3,14 @@ kind: Service
 metadata:
   name: mysql
   labels:
+    app.kubernetes.io/name: robot-shop
     service: mysql
+    type: infra
 spec:
   ports:
   - name: mysql
     port: 3306
+  - name: http-metrics
+    port: 9104
   selector:
     service: mysql

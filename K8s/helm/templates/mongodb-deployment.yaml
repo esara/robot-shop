@@ -31,6 +31,18 @@ spec:
           requests:
             cpu: 100m
             memory: 100Mi
+      - name: mongodb-exporter
+        image: percona/mongodb_exporter:0.40.0
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: MONGODB_URI
+            value: mongodb://mongodb:27017
+        ports:
+          - name: http-metrics
+            containerPort: 9216
+        args:
+          - --collect-all
+          - --compatible-mode
       restartPolicy: Always
       {{- with .Values.mongodb.affinity }}
       affinity:

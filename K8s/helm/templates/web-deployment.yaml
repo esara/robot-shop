@@ -39,6 +39,18 @@ spec:
           requests:
             cpu: 100m
             memory: 50Mi
+      - name: nginx-exporter
+        image: nginx/nginx-prometheus-exporter:0.11
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+          - '-nginx.scrape-uri=http://localhost:8080/nginx_status'
+        resources:
+          requests:
+            cpu: 200m
+            memory: 100Mi
+        ports:
+          - name: http-metrics
+            containerPort: 9113
       restartPolicy: Always
       {{- with .Values.web.affinity }}
       affinity:
