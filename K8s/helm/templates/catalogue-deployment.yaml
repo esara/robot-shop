@@ -21,6 +21,23 @@ spec:
       - name: catalogue
         image: {{ .Values.image.repo }}/rs-catalogue:{{ .Values.image.version }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        {{- if .Values.datadog.agent }}
+        - name: DD_AGENT_HOST
+          value: {{ .Values.datadog.agent }}
+        - name: DD_ENV
+          value: {{ .Values.datadog.environment }}
+        {{- end }}
+        - name: DD_DYNAMIC_INSTRUMENTATION_ENABLED
+          value: "true"
+        - name: DD_EXCEPTION_DEBUGGING_ENABLED
+          value: "true"
+        - name: DD_LOGS_INJECTION
+          value: "true"
+        - name: DD_PROFILING_ENABLED
+          value: "true"
+        - name: DD_SERVICE
+          value: catalogue
         ports:
         - name: http
           containerPort: 8080

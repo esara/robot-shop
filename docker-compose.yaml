@@ -13,12 +13,16 @@ services:
         max-file: "2"
   redis:
     image: redis:6.2-alpine
+    ports:
+      - "9121:9121"
     networks:
       - robot-shop
     logging:
       <<: *logging
   rabbitmq:
     image: rabbitmq:3.12
+    ports:
+      - "15692:15692"
     networks:
       - robot-shop
     logging:
@@ -31,6 +35,10 @@ services:
       - mongodb
     networks:
       - robot-shop
+    environment:
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "catalogue"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
@@ -47,6 +55,10 @@ services:
       - redis
     networks:
       - robot-shop
+    environment:
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "user"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
@@ -63,6 +75,10 @@ services:
       - catalogue
     networks:
       - robot-shop
+    environment:
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "cart"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
@@ -99,6 +115,12 @@ services:
     build:
       context: shipping
     image: ${REPO}/rs-shipping:${TAG}
+    command:
+      - java
+      - -XX:MaxRAMPercentage=75.0
+      - -javaagent:dd-java-agent.jar
+      - -jar
+      - shipping.jar
     depends_on:
       - mysql
     networks:
@@ -108,6 +130,11 @@ services:
       interval: 10s
       timeout: 10s
       retries: 3
+    environment:
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "shipping"
+      DD_INSTRUMENTATION_TELEMETRY_ENABLED: "false"
     logging:
       <<: *logging
   ratings:
@@ -116,6 +143,9 @@ services:
     image: ${REPO}/rs-ratings:${TAG}
     environment:
       APP_ENV: prod
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "ratings"
     networks:
       - robot-shop
     depends_on:
@@ -142,8 +172,11 @@ services:
       timeout: 10s
       retries: 3
     # Uncomment to change payment gateway
-    #environment:
+    environment:
       #PAYMENT_GATEWAY: "https://www.worldpay.com"
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "payment"
     logging:
       <<: *logging
   dispatch:
@@ -155,6 +188,10 @@ services:
       - mongodb
     networks:
       - robot-shop
+    environment:
+      DD_AGENT_HOST: "agent"
+      DD_ENV: "development"
+      DD_SERVICE: "dispatch"
     logging:
       <<: *logging
   web:
@@ -177,6 +214,19 @@ services:
       retries: 3
     logging:
       <<: *logging
+  agent:
+    image: datadog/agent:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APM_ENABLED=true
+    ports:
+      - 127.0.0.1:8126:8126
+    networks:
+      - robot-shop
 
 networks:
   robot-shop:

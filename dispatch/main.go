@@ -17,6 +17,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 var (
@@ -164,6 +166,13 @@ func processOrder(headers map[string]interface{}, order []byte) {
 
 func main() {
 	rand.NewSource(time.Now().Unix())
+
+	datadog, ok := os.LookupEnv("DD_AGENT_HOST")
+	if !ok {
+		datadog = "datadog-agent.datadog"
+	}
+	tracer.Start(tracer.WithAgentAddr(datadog + ":8126"))
+	defer tracer.Stop()
 
 	// Init amqpUri
 	// get host from environment

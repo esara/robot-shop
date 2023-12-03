@@ -13,5 +13,5 @@ COPY *.py /app/
 COPY payment.ini /app/
 
 #CMD ["python", "payment.py"]
-CMD ["uwsgi", "--ini", "payment.ini"]
-
+#CMD ["uwsgi", "--ini", "payment.ini"]
+CMD ["ddtrace-run", "uwsgi", "--ini", "payment.ini"]

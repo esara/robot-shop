@@ -4,3 +4,4 @@ requests
 pika
 prometheus_client
 prometheus-flask-exporter
+ddtrace

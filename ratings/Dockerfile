@@ -3,8 +3,9 @@ FROM php:8.4-apache
 RUN apt-get update && apt-get install -yqq unzip libzip-dev \
     && docker-php-ext-install pdo_mysql opcache zip
 
-# Enable AutoProfile for PHP which is currently opt-in beta
-RUN echo "instana.enable_auto_profile=1" > "/usr/local/etc/php/conf.d/zzz-instana-extras.ini"
+# Datadog installation: APM  + Profiling (Beta)
+RUN curl -sLO https://github.com/DataDog/dd-trace-php/releases/latest/download/datadog-setup.php
+RUN php datadog-setup.php --php-bin=all --enable-profiling
 
 # relax permissions on status
 COPY status.conf /etc/apache2/mods-available/status.conf
