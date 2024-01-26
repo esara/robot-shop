@@ -24,6 +24,9 @@ const expLogger = expPino({
     logger: logger
 });
 
+// OpenTelemetry
+require('./tracing');
+
 // Redis
 var redisHost = process.env.REDIS_HOST || 'redis';
 var redisConnected = false;

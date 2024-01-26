@@ -21,6 +21,21 @@ spec:
       - name: cart
         image: {{ .Values.image.repo }}/rs-cart:{{ .Values.image.version }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        {{- if .Values.otlp.endpoint }}
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: {{ .Values.otlp.endpoint }}
+        {{- end }}
+        {{- if .Values.otlp.insecure }}
+        - name: OTEL_EXPORTER_OTLP_INSECURE
+          value: {{ .Values.otlp.insecure | quote }}
+        {{- end }}
+        {{- if .Values.otlp.headers }}
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          value: {{ .Values.otlp.headers | quote }}
+        {{- end }}
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=cart,service.namespace=robot-shop"
         ports:
         - name: http
           containerPort: 8080

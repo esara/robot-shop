@@ -17,6 +17,12 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -55,6 +61,8 @@ func init() {
 func connectToMongo(uri string) *mongo.Client {
 	log.Println("Connecting to", uri)
 	opts := options.Client()
+	//Mongo OpenTelemetry instrumentation
+	opts.Monitor = otelmongo.NewMonitor()
 	opts.ApplyURI(uri)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -72,10 +80,28 @@ func connectToMongo(uri string) *mongo.Client {
 
 func connectToRabbitMQ(uri string) *amqp.Connection {
 	for {
+		// Trace RabbitMQ connection
+		tracer := otel.Tracer("dispatch")
+		opts := []oteltrace.SpanStartOption{
+			oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
+		}
+		_, span := tracer.Start(context.Background(), "connectToRabbitMQ", opts...)
+		defer span.End()
+
+		span.SetAttributes(
+			semconv.MessagingSystem("rabbitmq"),
+			semconv.NetAppProtocolName("AMQP"),
+		)
+
 		conn, err := amqp.Dial(uri)
 		if err == nil {
 			return conn
 		}
+
+		// Record error for RabbitMQ connection
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		span.End()
 
 		log.Println(err)
 		log.Printf("Reconnecting to %s\n", uri)
@@ -128,6 +154,31 @@ func failOnError(err error, msg string) {
 func processOrder(headers map[string]interface{}, order []byte) {
 	start := time.Now()
 	log.Printf("processing order %s\n", order)
+	tracer := otel.Tracer("dispatch")
+
+	// headers is map[string]interface{}
+	// carrier is map[string]string
+	carrier := make(propagation.MapCarrier)
+	// convert by copying k, v
+	for k, v := range headers {
+		carrier[k] = v.(string)
+	}
+
+	ctx := otel.GetTextMapPropagator().Extract(context.Background(), carrier)
+
+	opts := []oteltrace.SpanStartOption{
+		oteltrace.WithSpanKind(oteltrace.SpanKindConsumer),
+	}
+	ctx, span := tracer.Start(ctx, "processOrder", opts...)
+	defer span.End()
+
+	span.SetAttributes(
+		semconv.MessagingOperationReceive,
+		semconv.MessagingDestinationName("orders"),
+		semconv.MessagingRabbitmqDestinationRoutingKey("orders"),
+		semconv.MessagingSystem("rabbitmq"),
+		semconv.NetAppProtocolName("AMQP"),
+	)
 
 	if mongodbClient != nil {
 		// parse string to json
@@ -141,8 +192,10 @@ func processOrder(headers map[string]interface{}, order []byte) {
 		o["_id"] = o["orderid"]
 
 		// save the order
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
 		coll := mongodbClient.Database("orders").Collection("orders")
-		res, err := coll.InsertOne(context.Background(), o)
+		res, err := coll.InsertOne(ctx, o)
 		if err == nil {
 			log.Println("insert result", res.InsertedID)
 		} else {
@@ -164,6 +217,9 @@ func processOrder(headers map[string]interface{}, order []byte) {
 
 func main() {
 	rand.NewSource(time.Now().Unix())
+
+	shutdown := initOTLP()
+	defer shutdown()
 
 	// Init amqpUri
 	// get host from environment
@@ -224,7 +280,7 @@ func main() {
 			for d := range msgs {
 				log.Printf("Headers %v\n", d.Headers)
 				log.Printf("Order %s\n", d.Body)
-				processOrder(d.Headers, d.Body)
+				go processOrder(d.Headers, d.Body)
 			}
 		}
 	}()

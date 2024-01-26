@@ -17,6 +17,9 @@ openshift: false
 
 ocCreateRoute: false
 
+otlp:
+  endpoint: http://tempo.monitoring:4317
+
 ######################################
 # Affinities for individual workloads
 # set in the following way:

@@ -4,3 +4,6 @@ requests
 pika
 prometheus_client
 prometheus-flask-exporter
+opentelemetry-distro
+opentelemetry-exporter-otlp
+opentelemetry-instrumentation-flask

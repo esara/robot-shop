@@ -9,6 +9,7 @@ import requests
 from flask import Flask
 from flask import jsonify
 from flask import request
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from prometheus_client import Gauge
 from prometheus_client import Counter
 from prometheus_client import Histogram
@@ -23,6 +24,9 @@ def path(req):
 app = Flask(__name__)
 metrics = PrometheusMetrics(app, group_by=path)
 app.logger.setLevel(logging.INFO)
+
+# Flask instrumentation
+FlaskInstrumentor().instrument_app(app)
 
 # Prometheus
 payment_item_counter = Counter('payment_items_counter', 'running count of items for payment')
