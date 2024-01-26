@@ -14,6 +14,9 @@ const expLogger = expPino({
     logger: logger
 });
 
+// OpenTelemetry
+require('./tracing');
+
 // MongoDB
 var db;
 var collection;

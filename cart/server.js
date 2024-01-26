@@ -16,6 +16,9 @@ const counter = new promClient.Counter({
     registers: [register]
 });
 
+// OpenTelemetry
+require('./tracing');
+
 // Redis
 var redisConnected = false;
 var redisHost = process.env.REDIS_HOST || 'redis'
