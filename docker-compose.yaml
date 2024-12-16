@@ -1,4 +1,3 @@
-version: '3'
 services:
   mongodb:
     build:
@@ -177,6 +176,172 @@ services:
       retries: 3
     logging:
       <<: *logging
+
+  beyla:
+    image: grafana/beyla:1.9
+    privileged: true
+    environment:
+      BEYLA_OPEN_PORT: "80,443,2000-10000"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://mediator:4318"
+    deploy:
+      mode:
+        global
+  mediator:
+#    image: us-docker.pkg.dev/public-causely/public/mediator:v1.0.65-0-g6ae85f89f281d981
+    image: quay.io/causely/mediator:v1.0.65-0-g6ae85f89f281d981
+    command: ["/bin/mediator", "-config", "/config/config.yaml"]
+    environment:
+      CAUSELY_GATEWAY_TOKEN: ${CAUSELY_GATEWAY_TOKEN} # Expect this to be set in the environment
+    ports:
+      - "50051:50051" # grpc-delta
+      - "4317:4317"   # grpc-otlp
+      - "8125:8125"   # http-datadog
+      - "8082:8082"   # webserver
+    volumes:
+      - mediator-data:/data
+    configs:
+      - source: mediator-config.yaml
+        target: /config/config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 8G
+  ml:
+#    image: us-docker.pkg.dev/public-causely/public/mediator_ml:v1.0.65-0-g6ae85f89f281d981
+    image: quay.io/causely/mediator_ml:v1.0.65-0-g6ae85f89f281d981
+    command: ["sh", "-c", "python3 mediator/main.py --config /config/config.yaml"]
+    ports:
+      - "50052:50052" # grpc
+      - "8081:8081"   # webserver2
+    configs:
+      - source: mediator-ml-config.yaml
+        target: /config/config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 8G
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.102.1
+    container_name: victoriametrics
+    command:
+      - '-search.maxConcurrentRequests=128'
+      - '-search.maxQueryDuration=5m'
+      - '-retentionPeriod=1d'
+      - '-search.maxUniqueTimeseries=3000000'
+    ports:
+      - "8428:8428"
+    volumes:
+      - victoria-metrics-data:/victoria-metrics-data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+volumes:
+  mediator-data:
+    driver: local
+    driver_opts:
+      device: /var/lib/docker/volumes/mediator-data/_data
+      type: tmpfs
+      o: uid=2000,gid=2000,mode=0770
+  victoria-metrics-data:
+    driver: local
+
+configs:
+  mediator-config.yaml:
+    content: |
+      gateway:
+        host: gw.causely.app
+        port: 443
+        tls: true
+        insecure: false
+  
+      ml:
+        port: 50052
+  
+      persistence:
+        enabled: true
+        path: /data/mediator
+  
+      global:
+        host_root: /
+        cluster_name: ${CLUSTER_NAME}
+  
+      server:
+        listen_port: 50051
+  
+      webserver:
+        port: 8082
+  
+      time_series:
+        hostname: victoriametrics
+        port: 8428
+  
+      scrapers:
+        - type: OpenTelemetry
+          enabled: true
+          sync_interval: 20s
+          port: 4317
+          createAssets: true
+          logUnhandledSpans: true
+          logging:
+            scraper:
+              level: info
+            repository:
+              level: info
+  
+        - type: CauselyServices
+          enabled: true
+          sync_interval: 30s
+          logging:
+            scraper:
+              level: info
+            repository:
+              level: info
+
+  mediator-ml-config.yaml:
+    content: |
+      # gRPC server configuration
+      grpc:
+        host: "0.0.0.0"
+        port: 50052
+        max_send_msg_size: 33554432 # 32MB
+        max_receive_msg_size: 33554432 # 32MB
+      
+      # victoriametrics configuration
+      victoriametrics:
+        endpoint: "http://victoriametrics:8428"
+        period: "24h"
+        step: "5m"
+        batch_size: 10
+        max_backoff_minutes: 20 # 20 minutes max backoff
+        initial_backoff_seconds: 1 # Initial backoff delay
+        backoff_multiplier: 2 # Expontential backoff factor
+        jitter: 0.1 # Jitter factor
+      
+      # Model settings
+      model:
+        prophet:
+          args:
+            daily_seasonality: true
+            weekly_seasonality: false
+            yearly_seasonality: false
+            seasonality_mode: "multiplicative"
+            interval_width: 0.95
+            changepoint_range: 0.8
+          horizon: 12 # 1 hour forecast with 5 minutes interval
+          freq: "5min"
+      
+      # webserver settings
+      webserver:
+        host: "0.0.0.0"
+        port: 8081
 
 networks:
   robot-shop:
