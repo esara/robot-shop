@@ -1,0 +1,108 @@
+services:
+#  beyla:
+#    image: grafana/beyla:3.14.0
+#    pid: "host"
+#    privileged: true
+#    environment:
+#      BEYLA_CONFIG_PATH: "/config/beyla-config.yaml"
+#    cap_add:
+#      - CAP_BPF
+#      - CAP_DAC_READ_SEARCH
+#      - CAP_CHECKPOINT_RESTORE
+#      - CAP_PERFMON
+#      - CAP_NET_RAW
+#      - CAP_SYS_PTRACE
+#      - CAP_NET_ADMIN
+#    restart: unless-stopped
+#    volumes:
+#      - ./beyla-config.yaml:/config/beyla-config.yaml
+  alloy:
+    image: grafana/alloy
+    privileged: true
+    expose:
+      - "4317"  # grpc-otlp
+      - "4318"  # http-otlp
+      - "12345" # webserver
+    environment:
+      ALLOY_DEPLOY_MODE: docker
+    restart: unless-stopped
+    volumes:
+      - ./alloy.config:/etc/alloy/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config
+  mediator:
+    image: us-docker.pkg.dev/public-causely/public/mediator:latest
+    user: "0"
+    command: ["/bin/mediator", "-config", "/config/config.yaml"]
+    environment:
+      CAUSELY_GATEWAY_TOKEN: ${CAUSELY_GATEWAY_TOKEN}
+    expose:
+      - "50051" # grpc-delta
+      - "4317"   # grpc-otlp
+      - "8125"   # http-datadog
+      - "8082"   # webserver
+    restart: unless-stopped
+    volumes:
+      - mediator-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./mediator-config.yaml:/config/config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 8G
+  ml:
+    image: us-docker.pkg.dev/public-causely/public/ml:latest
+    command: ["sh", "-c", "uv run mediator/main.py --config /config/config.yaml"]
+    expose:
+      - "50052" # grpc
+      - "8082"   # webserver2
+    restart: unless-stopped
+    volumes:
+      - ./mediator-ml-config.yaml:/config/config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 8G
+#  executor:
+#    image: us-docker.pkg.dev/public-causely/public/executor:latest
+#    command: ["/bin/executor", "-config", "/config/config.yaml"]
+#    expose:
+#      - "50060"   # gRPC executor
+#      - "8082"     # web server
+#    restart: unless-stopped
+#    volumes:
+#      - ./executor-config.yaml:/config/config.yaml
+#    environment:
+#      WEBHOOK_URL: ${WEBHOOK_URL}
+#      WEBHOOK_TOKEN: ${WEWEBHOOK_TOKENBHOOK_URL}
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: "0.1"
+#          memory: 256M
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.128.0
+    command:
+      - "-search.maxConcurrentRequests=128"
+      - "-search.maxUniqueTimeseries=3000000"
+      - "-search.maxQueryDuration=5m"
+      - "-search.maxQueryLen=65536"
+      - "-retentionPeriod=1d"
+    expose:
+      - "8428"
+    restart: unless-stopped
+    volumes:
+      - victoria-metrics-data:/victoria-metrics-data
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+volumes:
+  mediator-data:
+    driver: local
+  victoria-metrics-data:
+    driver: local

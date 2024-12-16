@@ -1,0 +1,36 @@
+# gRPC server configuration
+grpc:
+  host: "0.0.0.0"
+  port: 50052
+  max_send_msg_size: 33554432 # 32MB
+  max_receive_msg_size: 33554432 # 32MB
+
+# victoriametrics configuration
+victoriametrics:
+  endpoint: "http://victoriametrics:8428"
+  period: "24h"
+  step: "5m"
+  batch_size: 100
+  batch_write_size: 1000
+  max_backoff_minutes: 20 # 20 minutes max backoff
+  initial_backoff_seconds: 1 # Initial backoff delay
+  backoff_multiplier: 2 # Exponential backoff factor
+  jitter: 0.1 # Jitter factor
+
+# Model settings
+model:
+  min_threshold_ms: 10.00
+  horizon: 12 # 1 hour forecast with 5 minutes interval
+  freq: "5min"
+
+  # IQR model settings
+  iqr:
+    # Window is used to compute rolling statistics
+    window_size: 72       # 6 hour window, 60 (min) / 5 (min) * 6 = 72
+    upper_quantile: 0.95
+    lower_quantile: 0.00
+
+# webserver settings
+webserver:
+  host: "0.0.0.0"
+  port: 8082

@@ -1,0 +1,10 @@
+discovery:
+  instrument:
+    - open_ports: 80,443,2000-10000
+otel_traces_export:
+  endpoint: http://mediator:4317
+attributes:
+  select:
+    traces:
+      include:
+        - db.query.text

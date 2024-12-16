@@ -1,0 +1,9 @@
+api:
+  host: mediator
+  port: 50051
+
+global:
+  host_root: /host
+
+webserver:
+  port: 8082

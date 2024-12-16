@@ -1,0 +1,70 @@
+gateway:
+  host: gw.causely.app
+  port: 443
+  tls: true
+  insecure: false
+
+ml:
+  port: 50052
+
+repository:
+  persistence:
+    enabled: true
+    path: /data/mediator.gob
+
+  garbage_collector:
+    enabled: true
+
+  timeseries_forecast:
+    enabled: true
+
+  backend_sync:
+    interval: 30s
+
+  entity_attribute_metrics:
+    enabled: true
+
+global:
+  host_root: /
+  cluster_name: CHANGE_ME_CLUSTER_NAME
+
+server:
+  listen_port: 50051
+
+webserver:
+  port: 8082
+
+time_series:
+  hostname: victoriametrics
+  port: 8428
+
+scrapers:
+  - type: OpenTelemetry
+    enabled: true
+    sync_interval: 20s
+    port: 4317
+    sampling_percentage: 0.0
+    logging:
+      scraper:
+        level: info
+      repository:
+        level: info
+
+  - type: CauselyServices
+    enabled: true
+    sync_interval: 15m
+    logging:
+      scraper:
+        level: info
+      repository:
+        level: info
+
+  - type: Docker
+    enabled: true
+    sync_interval: 60s
+    logs_enabled: true
+    logging:
+      scraper:
+        level: info
+      repository:
+        level: info
