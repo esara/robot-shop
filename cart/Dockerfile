@@ -10,4 +10,4 @@ RUN npm install
 
 COPY server.js /opt/server/
 
-CMD ["node", "server.js"]
+CMD ["node", "--require", "dd-trace/init", "server.js"]

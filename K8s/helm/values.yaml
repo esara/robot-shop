@@ -17,6 +17,10 @@ openshift: false
 
 ocCreateRoute: false
 
+datadog:
+  agent: "datadog-agent.datadog"
+  environment: "development"
+
 ######################################
 # Affinities for individual workloads
 # set in the following way:

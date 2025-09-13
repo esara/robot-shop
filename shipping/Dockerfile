@@ -26,4 +26,5 @@ ENV DB_HOST=mysql
 
 COPY --from=build /opt/shipping/target/shipping-1.0.jar shipping.jar
 
-CMD [ "java", "-XX:MaxRAMPercentage=75.0", "-jar", "shipping.jar" ]
+RUN curl -s -P /opt/shipping/ -OL https://github.com/DataDog/dd-trace-java/releases/download/v1.53.0/dd-java-agent.jar
+CMD [ "java", "-XX:MaxRAMPercentage=75.0", "-javaagent:dd-java-agent.jar", "-jar", "shipping.jar" ]
